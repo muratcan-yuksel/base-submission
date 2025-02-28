@@ -242,7 +242,7 @@ const FlashblocksApp = () => {
         };
     }, [debouncedSetFullBlock]);
 
-    const renderTransactionListItems = (transactions) => {
+    const renderTransactionListItems = (transactions, truncateInFlashblocksTab = false) => {
         const truncateHash = (hash, startLength, endLength) => { // Modified to accept startLength and endLength
             if (!hash) return '';
             if (hash.length <= startLength + endLength + 3) return hash;
@@ -262,7 +262,10 @@ const FlashblocksApp = () => {
                 if (txHash) {
                     if (activeTab === 'comparison') {
                         displayTxHash = truncateHash(txHash, 6, 24); // Truncate in comparison view
+                    } else if (activeTab === 'flashblocks' || truncateInFlashblocksTab) {
+                        displayTxHash = truncateHash(txHash, 6, 84); // Shorter truncation for flashblocks tab
                     }
+
                     items.push(
                         <motion.div
                             key={i}
@@ -445,7 +448,7 @@ const FlashblocksApp = () => {
                                 {blockData.blockType}
                             </Typography>
                             <Grid container spacing={2} mb={2}>
-                                {/* <Grid item xs={6}>
+                                <Grid item xs={6}>
                                     <Typography variant="subtitle2" color="text.primary">#</Typography>
                                     <Typography variant="body2" fontFamily="monospace" color="text.secondary">
                                         {blockData.blockNumber}
@@ -456,7 +459,7 @@ const FlashblocksApp = () => {
                                     <Typography variant="body2" color="text.secondary">
                                         {blockData.timestamp ? new Date(blockData.timestamp * 1000).toLocaleTimeString() : 'N/A'}
                                     </Typography>
-                                </Grid> */}
+                                </Grid>
                                 <Grid item xs={6}>
                                     <Typography variant="subtitle2" color="text.primary">Txs</Typography>
                                     <Typography variant="body2" color="text.secondary">
@@ -471,7 +474,7 @@ const FlashblocksApp = () => {
                                 </Grid>
                             </Grid>
                             <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }} color="text.primary">Transactions</Typography>
-                            {renderTransactionListItems(blockData.transactionsList)}
+                            {renderTransactionListItems(blockData.transactionsList, activeTab === 'flashblocks')}
                             <Typography variant="caption" color="text.disabled" sx={{ mt: 2, fontStyle: 'italic' }}>
                                 {isFlashBlock ? '~200ms block time' : '~2s block time'}
                             </Typography>
