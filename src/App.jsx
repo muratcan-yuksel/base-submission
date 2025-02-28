@@ -448,7 +448,7 @@ const FlashblocksApp = () => {
                                 {blockData.blockType}
                             </Typography>
                             <Grid container spacing={2} mb={2}>
-                                <Grid item xs={6}>
+                                {/* <Grid item xs={6}>
                                     <Typography variant="subtitle2" color="text.primary">#</Typography>
                                     <Typography variant="body2" fontFamily="monospace" color="text.secondary">
                                         {blockData.blockNumber}
@@ -459,7 +459,7 @@ const FlashblocksApp = () => {
                                     <Typography variant="body2" color="text.secondary">
                                         {blockData.timestamp ? new Date(blockData.timestamp * 1000).toLocaleTimeString() : 'N/A'}
                                     </Typography>
-                                </Grid>
+                                </Grid> */}
                                 <Grid item xs={6}>
                                     <Typography variant="subtitle2" color="text.primary">Txs</Typography>
                                     <Typography variant="body2" color="text.secondary">
