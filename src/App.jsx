@@ -466,12 +466,12 @@ const FlashblocksApp = () => {
                                         {blockData.transactionsList ? blockData.transactionsList.length : 0}
                                     </Typography>
                                 </Grid>
-                                <Grid item xs={6}>
+                                {/* <Grid item xs={6}>
                                     <Typography variant="subtitle2" color="text.primary">Type</Typography>
                                     <Typography variant="body2" color="text.secondary">
                                         {blockData.extraInfo}
                                     </Typography>
-                                </Grid>
+                                </Grid> */}
                             </Grid>
                             <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }} color="text.primary">Transactions</Typography>
                             {renderTransactionListItems(blockData.transactionsList, activeTab === 'flashblocks')}
