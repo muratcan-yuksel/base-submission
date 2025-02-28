@@ -242,95 +242,52 @@ const FlashblocksApp = () => {
         };
     }, [debouncedSetFullBlock]);
 
-    const formatBlock = (block, isFlashBlock = false, animationKey) => {
-        if (!block) {
-            return (
-                <Paper elevation={2} sx={{ p: 3, textAlign: 'center', minHeight: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="body1" color="text.secondary">
-                        Waiting for {isFlashBlock ? 'Flashblock' : 'Full Block'}...
-                    </Typography>
-                </Paper>
-            );
-        }
+    const renderTransactionListItems = (transactions) => {
+        const truncateHash = (hash, startLength, endLength) => { // Modified to accept startLength and endLength
+            if (!hash) return '';
+            if (hash.length <= startLength + endLength + 3) return hash;
+            return `${hash.substring(0, startLength)}...${hash.substring(hash.length - endLength)}`;
+        };
 
         const maxTransactionsToShow = 2;
-
-        const renderTransactionListItems = (transactions) => {
-            const truncateHash = (hash, startLength, endLength) => { // Modified to accept startLength and endLength
-                if (!hash) return '';
-                if (hash.length <= startLength + endLength + 3) return hash;
-                return `${hash.substring(0, startLength)}...${hash.substring(hash.length - endLength)}`;
-            };
-
-            const items = [];
-            if (transactions && transactions.length > 0) {
-                for (let i = 0; i < maxTransactionsToShow; i++) {
-                    const txHashOrObject = transactions[i];
-                    let txHash = txHashOrObject;
-                    if (txHashOrObject && typeof txHashOrObject === 'object' && txHashOrObject.hash) {
-                        txHash = txHashOrObject.hash;
-                    }
-                    let displayTxHash = txHash; // Default to full hash
-                    if (txHash) {
-                        if (activeTab === 'comparison') {
-                            displayTxHash = truncateHash(txHash, 6, 14); // Truncate in comparison view
-                        }
-                        items.push(
-                            <motion.div
-                                key={i}
-                                custom={i}
-                                initial="hidden"
-                                animate="visible"
-                                variants={transactionVariants}
-                            >
-                                <ListItem disablePadding>
-                                    <Typography
-                                        variant="body2"
-                                        color="text.secondary"
-                                        sx={{
-                                            overflowWrap: 'break-word',
-                                            wordBreak: 'break-all',
-                                            fontFamily: 'monospace'
-                                        }}
-                                    >
-                                        {displayTxHash}
-                                    </Typography>
-                                </ListItem>
-                            </motion.div>
-                        );
-                    } else {
-                        items.push(
-                            <motion.div
-                                key={`empty-${i}`}
-                                custom={i}
-                                initial="hidden"
-                                animate="visible"
-                                variants={transactionVariants}
-                            >
-                                <ListItem disablePadding>
-                                    <Typography variant="body2" color="text.disabled">- No Tx -</Typography>
-                                </ListItem>
-                            </motion.div>
-                        );
-                    }
+        const items = [];
+        if (transactions && transactions.length > 0) {
+            for (let i = 0; i < maxTransactionsToShow; i++) {
+                const txHashOrObject = transactions[i];
+                let txHash = txHashOrObject;
+                if (txHashOrObject && typeof txHashOrObject === 'object' && txHashOrObject.hash) {
+                    txHash = txHashOrObject.hash;
                 }
-                if (transactions.length > maxTransactionsToShow) {
+                let displayTxHash = txHash; // Default to full hash
+                if (txHash) {
+                    if (activeTab === 'comparison') {
+                        displayTxHash = truncateHash(txHash, 6, 24); // Truncate in comparison view
+                    }
                     items.push(
                         <motion.div
-                            key="more"
-                            custom={maxTransactionsToShow}
+                            key={i}
+                            custom={i}
                             initial="hidden"
                             animate="visible"
                             variants={transactionVariants}
+
                         >
                             <ListItem disablePadding>
-                                <Typography variant="body2" color="text.disabled">...and {transactions.length - maxTransactionsToShow} more</Typography>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{
+                                        overflowWrap: 'break-word',
+                                        wordBreak: 'break-all',
+                                        fontFamily: 'monospace'
+                                    }}
+                                >
+                                    {displayTxHash}
+                                </Typography>
                             </ListItem>
                         </motion.div>
                     );
-                }
-            } else {
-                for (let i = 0; i < maxTransactionsToShow; i++) {
+                } else {
                     items.push(
                         <motion.div
                             key={`empty-${i}`}
@@ -346,12 +303,91 @@ const FlashblocksApp = () => {
                     );
                 }
             }
-            return (
-                <List dense sx={{ mt: 2 }}>
-                    {items}
-                </List>
-            );
+            if (transactions.length > maxTransactionsToShow) {
+                items.push(
+                    <motion.div
+                        key="more"
+                        custom={maxTransactionsToShow}
+                        initial="hidden"
+                        animate="visible"
+                        variants={transactionVariants}
+                    >
+                        <ListItem disablePadding>
+                            <Typography variant="body2" color="text.disabled">...and {transactions.length - maxTransactionsToShow} more</Typography>
+                        </ListItem>
+                    </motion.div>
+                );
+            }
+        } else {
+            for (let i = 0; i < maxTransactionsToShow; i++) {
+                items.push(
+                    <motion.div
+                        key={`empty-${i}`}
+                        custom={i}
+                        initial="hidden"
+                        animate="visible"
+                        variants={transactionVariants}
+                    >
+                        <ListItem disablePadding>
+                            <Typography variant="body2" color="text.disabled">- No Tx -</Typography>
+                            </ListItem>
+                    </motion.div>
+                );
+            }
+        }
+        return (
+            <List dense sx={{ mt: 2 }}>
+                {items}
+            </List>
+        );
+    };
+
+
+    const formatFlashBlockData = (block) => {
+        if (!block) return null;
+
+        const blockNumber = block.index === 0 ? parseInt(block.base?.block_number, 16) : block.metadata?.block_number;
+        const timestamp = block.index === 0 ? parseInt(block.base?.timestamp, 16) : null; // Timestamp only in initial block
+        const transactionsList = block.diff?.transactions;
+        const diffType = block.diffType || (block.index === 0 ? 'Initial' : 'Diff'); // Determine Diff type
+
+         let actualTimestamp = timestamp;
+        if (actualTimestamp === null && latestFlashBlock && latestFlashBlock.index === 0) {
+            actualTimestamp = parseInt(latestFlashBlock.base?.timestamp, 16); // Use timestamp from the initial block if diff block
+        }
+
+
+        return {
+            blockType: 'Flashblock',
+            blockNumber: isNaN(blockNumber) ? 'N/A' : blockNumber,
+            timestamp: actualTimestamp,
+            transactionsList: transactionsList || [],
+            extraInfo : diffType
         };
+    };
+
+    const formatFullBlockData = (block) => {
+        if (!block) return null;
+        return {
+            blockType: 'Full Block',
+            blockNumber: parseInt(block.number, 16),
+            timestamp: parseInt(block.timestamp, 16),
+            transactionsList: block.transactions || [],
+            extraInfo: 'Standard'
+        };
+    };
+
+
+    const formatBlock = (block, isFlashBlock = false, animationKey) => {
+        if (!block) {
+            return (
+                <Paper elevation={2} sx={{ p: 3, textAlign: 'center', minHeight: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography variant="body1" color="text.secondary">
+                        Waiting for {isFlashBlock ? 'Flashblock' : 'Full Block'}...
+                    </Typography>
+                </Paper>
+            );
+        }
 
         const pulseColor = isFlashBlock ?
             "rgba(144, 202, 249, 0.8)" :
@@ -378,6 +414,10 @@ const FlashblocksApp = () => {
         };
 
 
+        const blockData = isFlashBlock ? formatFlashBlockData(block) : formatFullBlockData(block);
+        if (!blockData) return null; // Handle cases where formatting returns null (e.g., initial wait)
+
+
         return (
             <AnimatePresence mode="wait">
                 <motion.div
@@ -389,8 +429,6 @@ const FlashblocksApp = () => {
                         variants={customFlashVariants}
                         style={{
                             borderRadius: '12px',
-                            overflow: 'hidden'
-
                         }}
                     >
                         <Paper
@@ -404,36 +442,36 @@ const FlashblocksApp = () => {
                             }}
                         >
                             <Typography variant="h6" component="h3" gutterBottom color={isFlashBlock ? 'primary' : 'secondary'}>
-                                {isFlashBlock ? 'Flashblock' : 'Full Block'}
+                                {blockData.blockType}
                             </Typography>
                             <Grid container spacing={2} mb={2}>
-                                <Grid item xs={6}>
+                                {/* <Grid item xs={6}>
                                     <Typography variant="subtitle2" color="text.primary">#</Typography>
                                     <Typography variant="body2" fontFamily="monospace" color="text.secondary">
-                                        {isFlashBlock ? parseInt(block.number, 16) : parseInt(block.number, 16)}
+                                        {blockData.blockNumber}
                                     </Typography>
                                 </Grid>
                                 <Grid item xs={6}>
                                     <Typography variant="subtitle2" color="text.primary">Time</Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        {new Date((isFlashBlock ? block.timestamp : parseInt(block.timestamp, 16)) * 1000).toLocaleTimeString()}
+                                        {blockData.timestamp ? new Date(blockData.timestamp * 1000).toLocaleTimeString() : 'N/A'}
                                     </Typography>
-                                </Grid>
+                                </Grid> */}
                                 <Grid item xs={6}>
                                     <Typography variant="subtitle2" color="text.primary">Txs</Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        {isFlashBlock ? block.transactions?.length : block.transactions?.length}
+                                        {blockData.transactionsList ? blockData.transactionsList.length : 0}
                                     </Typography>
                                 </Grid>
                                 <Grid item xs={6}>
                                     <Typography variant="subtitle2" color="text.primary">Type</Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        {isFlashBlock ? (block.diffType ? block.diffType : 'Initial') : 'Standard'}
+                                        {blockData.extraInfo}
                                     </Typography>
                                 </Grid>
                             </Grid>
                             <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }} color="text.primary">Transactions</Typography>
-                            {renderTransactionListItems(isFlashBlock ? (block.transactions || block.diff?.transactions) : block.transactions)}
+                            {renderTransactionListItems(blockData.transactionsList)}
                             <Typography variant="caption" color="text.disabled" sx={{ mt: 2, fontStyle: 'italic' }}>
                                 {isFlashBlock ? '~200ms block time' : '~2s block time'}
                             </Typography>
@@ -484,7 +522,7 @@ const FlashblocksApp = () => {
                     {activeTab === 'flashblocks' && (
                         <Box>
                             <Typography variant="h6" align="center" gutterBottom color="primary">
-                                Flashblocks Stream (200ms) - *Individual Stream View*
+                                Flashblocks Stream (200ms)
                             </Typography>
                             {formatBlock(latestFlashBlock, true, flashBlockAnimationKey)}
                         </Box>
@@ -493,7 +531,7 @@ const FlashblocksApp = () => {
                     {activeTab === 'fullblocks' && (
                         <Box>
                             <Typography variant="h6" align="center" gutterBottom color="secondary">
-                                Full Blocks Stream (2s) - *Individual Stream View*
+                                Full Blocks Stream (2s)
                             </Typography>
                             {formatBlock(latestFullBlock, false, fullBlockAnimationKey)}
                         </Box>
