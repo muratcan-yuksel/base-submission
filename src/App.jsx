@@ -560,7 +560,7 @@ const FlashblocksApp = () => {
 
 
                 <Box mt={10} textAlign="center" color="text.disabled" fontSize="small">
-                    © {new Date().getFullYear()} Flashblocks Explorer. Built by Murat Can Yüksel for ETH Denver 2025.
+                    © {new Date().getFullYear()} Flashblocks Explorer. Built by Murat Can Yüksel for Base.
                 </Box>
             </Container>
          </Box>
