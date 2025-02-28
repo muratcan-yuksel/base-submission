@@ -2,6 +2,90 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock } from 'lucide-react';
 import debounce from 'lodash.debounce'; // Import debounce
 
+// Import Material UI components and theming
+import {
+    ThemeProvider,
+    createTheme,
+    CssBaseline,
+    Box,
+    Typography,
+    Container,
+    Button,
+    Grid,
+    Paper,
+    Tabs,
+    Tab,
+    List,
+    ListItem,
+} from '@mui/material';
+
+const darkTheme = createTheme({
+    palette: {
+        mode: 'dark',
+        primary: {
+            main: '#90caf9', // Light Blue
+        },
+        secondary: {
+            main: '#a5d6a7', // Light Green
+        },
+        background: {
+            default: '#121212', // Darker background
+            paper: '#1e1e1e', // Slightly lighter paper background
+        },
+        text: {
+            primary: '#e0e0e0', // Off-white text
+            secondary: '#bdbdbd', // Lighter grey text
+        },
+    },
+    typography: {
+        fontFamily: "'Roboto Mono', monospace", // Optional: Monospace font for a Web3 feel
+        h1: {
+            fontWeight: 700,
+        },
+        h2: {
+            fontWeight: 600,
+        },
+        // ... you can customize other typography variants
+    },
+    components: {
+        MuiPaper: {
+            styleOverrides: {
+                rounded: {
+                    borderRadius: '12px', // More rounded corners for Paper
+                },
+            },
+        },
+        MuiButton: {
+            styleOverrides: {
+                root: {
+                    borderRadius: '8px', // Rounded buttons
+                    textTransform: 'none', // Prevent uppercase button text
+                },
+            },
+        },
+        MuiTabs: {
+            styleOverrides: {
+                indicator: {
+                    backgroundColor: '#90caf9', // Blue indicator for tabs
+                },
+            },
+        },
+        MuiTab: {
+            styleOverrides: {
+                root: {
+                    textTransform: 'none', // Prevent uppercase tab text
+                    fontWeight: 500,
+                    '&.Mui-selected': {
+                        color: '#90caf9', // Blue text for selected tab
+                    },
+                },
+            },
+        },
+        // ... you can customize other MUI components globally
+    },
+});
+
+
 const FlashblocksApp = () => {
     console.log("FlashblocksApp RE-RENDER"); // Log 1: Component re-render
 
@@ -186,203 +270,229 @@ const FlashblocksApp = () => {
     }, [debouncedSetFullBlock]); // Add debouncedSetFullBlock to dependency array
 
 
-    // Format block data for display (modified to handle single blocks) - No changes needed here for debugging
+    // Format Block Data - Now using MUI Typography and Paper
     const formatBlock = (block, isFlashBlock = false) => {
         if (!block) {
-            return <p className="text-gray-300">Waiting for {isFlashBlock ? 'Flashblock' : 'Full Block'}...</p>;
+            return (
+                <Paper elevation={2} sx={{ p: 3, textAlign: 'center', minHeight: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography variant="body1" color="text.secondary">
+                        Waiting for {isFlashblock ? 'Flashblock' : 'Full Block'}...
+                    </Typography>
+                </Paper>
+            );
         }
 
-        const blockStyle = {
-            minHeight: '220px', // Adjusted minHeight for 2 transactions
-            willChange: 'transform',
-            /* transition: 'height 0.1s ease-in-out, padding 0.1s ease-in-out',  Transition TEMPORARILY REMOVED */
-            padding: '1rem',
-            boxSizing: 'border-box',
-            backgroundColor: '#111827', // Dark background
-            color: '#f9fafb', // Light text
-        };
-
-        const maxTransactionsToShow = 2; // Display only 2 transactions
+        const maxTransactionsToShow = 2;
 
         const renderTransactionListItems = (transactions) => {
             const items = [];
             if (transactions && transactions.length > 0) {
                 for (let i = 0; i < maxTransactionsToShow; i++) {
-                    const txHash = transactions[i];
+                    const txHashOrObject = transactions[i];
+                    let txHash = txHashOrObject;
+                    if (txHashOrObject && typeof txHashOrObject === 'object' && txHashOrObject.hash) {
+                        txHash = txHashOrObject.hash;
+                    }
                     if (txHash) {
                         items.push(
-                            <li key={i} className="text-sm break-all text-gray-100">{txHash.substring(0, 10)}...{txHash.substring(58)}</li>
+                            <ListItem key={i} disablePadding>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{
+                                        overflowWrap: 'break-word', // Keep this - good for normal word wrapping
+                                        wordBreak: 'break-all',    // ADD THIS - more aggressive breaking
+                                        fontFamily: 'monospace'
+                                    }}
+                                >
+                                    {txHash}
+                                </Typography>
+                            </ListItem>
                         );
                     } else {
-                        items.push(<li key={`empty-${i}`} className="text-sm text-gray-500">- No Transaction -</li>);
+                        items.push(
+                            <ListItem key={`empty-${i}`} disablePadding>
+                                <Typography variant="body2" color="text.disabled">- No Tx -</Typography>
+                            </ListItem>
+                        );
                     }
                 }
                 if (transactions.length > maxTransactionsToShow) {
                     items.push(
-                        <li key="more" className="text-sm text-gray-500">...and {transactions.length - maxTransactionsToShow} more</li>
+                        <ListItem key="more" disablePadding>
+                            <Typography variant="body2" color="text.disabled">...and {transactions.length - maxTransactionsToShow} more</Typography>
+                        </ListItem>
                     );
                 }
             } else {
-                // If no transactions at all, render placeholders
                 for (let i = 0; i < maxTransactionsToShow; i++) {
-                    items.push(<li key={`empty-${i}`} className="text-sm text-gray-500">- No Transaction -</li>);
+                    items.push(
+                        <ListItem key={`empty-${i}`} disablePadding>
+                            <Typography variant="body2" color="text.disabled">- No Tx -</Typography>
+                        </ListItem>
+                    );
                 }
             }
-            return <ul className="mt-2">{items}</ul>; // Added mt-2 for spacing
+            return (
+                <List dense sx={{ mt: 2 }}>
+                    {items}
+                </List>
+            );
         };
 
 
-        // For initial flashblocks response
-        if (isFlashBlock && block.index === 0) {
-            return (
-                <div key={`flashblock-initial-${block?.payload_id}`} className="rounded-lg shadow mb-4" style={blockStyle}>
-                    <h3 className="text-lg font-semibold mb-2 text-blue-400">Latest Flashblock</h3> {/* Neon blue for Flashblock heading */}
-                    <p className="mb-1"><span className="font-medium text-gray-100">Number:</span> {parseInt(block.number, 16)}</p>
-                    <p className="mb-1"><span className="font-medium text-gray-100">Time:</span> {new Date(block.timestamp * 1000).toLocaleTimeString()}</p>
-                    <p className="mb-1"><span className="font-medium text-gray-100">Transactions:</span> {block.transactions?.length || 0}</p>
-                    <div>
-                        <h4 className="text-md font-semibold mt-2 mb-1 text-gray-100">Transactions:</h4>
-                        {renderTransactionListItems(block.transactions)}
-                    </div>
-                    <p className="text-xs text-gray-400">200ms block time</p>
-                </div>
-            );
-        }
-        // For diff flashblocks
-        if (isFlashBlock) {
-            return (
-                <div key={`flashblock-diff-${block?.payload_id}-${block?.index}`} className="rounded-lg shadow mb-4 border-l-4 border-blue-500" style={blockStyle}>
-                    <h3 className="text-lg font-semibold mb-2 text-blue-400">Latest Flashblock</h3> {/* Neon blue for Flashblock heading */}
-                    <p className="mb-1"><span className="font-medium text-gray-100">Diff Type:</span> {block.diffType}</p>
-                    <p className="mb-1"><span className="font-medium text-gray-100">Transactions:</span> {block.diff?.transactions?.length || 0}</p>
-                    <div>
-                        <h4 className="text-md font-semibold mt-2 mb-1 text-gray-100">Transactions:</h4>
-                        {renderTransactionListItems(block.diff?.transactions)}
-                    </div>
-                    <p className="text-xs text-gray-400">200ms block time</p>
-                </div>
-            );
-        }
-        // For full blocks
         return (
-            <div key={`fullblock-${block?.hash}`} className="rounded-lg shadow mb-4 border-l-4 border-green-500" style={blockStyle}>
-                <h3 className="text-lg font-semibold mb-2 text-green-400">Latest Full Block</h3> {/* Neon green for Full Block heading */}
-                <p className="mb-1"><span className="font-medium text-gray-100">Hash:</span> {block.hash.substring(0, 10)}...{block.hash.substring(58)}</p>
-                <p className="mb-1"><span className="font-medium text-gray-100">Time:</span> {new Date(parseInt(block.timestamp, 16) * 1000).toLocaleTimeString()}</p>
-                <p className="mb-1"><span className="font-medium text-gray-100">Transactions:</span> {block.transactions?.length || 0}</p>
-                <p className="text-xs text-gray-400">2s block time</p>
-            </div>
+            <Paper elevation={3} rounded sx={{ p: 3, mb: 4, borderLeft: `4px solid ${isFlashBlock ? '#64b5f6' : '#81c784'}` }}>
+                <Typography variant="h6" component="h3" gutterBottom color={isFlashBlock ? 'primary' : 'secondary'}>
+                    {isFlashBlock ? 'Flashblock' : 'Full Block'}
+                </Typography>
+                <Grid container spacing={2} mb={2}>
+                    <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.primary">#</Typography>
+                        <Typography variant="body2" fontFamily="monospace" color="text.secondary">
+                            {isFlashBlock ? parseInt(block.number, 16) : parseInt(block.number, 16)}
+                        </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.primary">Time</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            {new Date((isFlashBlock ? block.timestamp : parseInt(block.timestamp, 16)) * 1000).toLocaleTimeString()}
+                        </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.primary">Txs</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            {isFlashBlock ? block.transactions?.length : block.transactions?.length}
+                        </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.primary">Type</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            {isFlashBlock ? (block.diffType ? block.diffType : 'Initial') : 'Standard'}
+                        </Typography>
+                    </Grid>
+                </Grid>
+                <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }} color="text.primary">Transactions</Typography>
+                {renderTransactionListItems(isFlashBlock ? (block.transactions || block.diff?.transactions) : block.transactions)}
+                <Typography variant="caption" color="text.disabled" sx={{ mt: 2, fontStyle: 'italic' }}>
+                    {isFlashBlock ? '~200ms block time' : '~2s block time'}
+                </Typography>
+            </Paper>
         );
     };
 
+
     return (
-        <div className="min-h-screen bg-gray-900 p-4"> {/* Dark background for the whole app */}
-            <div className="max-w-3xl mx-auto"> {/* Constrain and center the content */}
-                <div className="bg-gray-800 text-white p-6 rounded-lg shadow-lg mb-6"> {/* Darker header background */}
-                    <div className="flex items-center justify-between">
-                        <h1 className="text-2xl font-bold text-blue-500">Flashblocks Explorer</h1> {/* Neon blue for header text */}
-                        <div className="flex items-center">
-                            <Clock className="mr-2 text-gray-300" />
-                            <span className="text-sm font-medium text-gray-300">200ms vs 2s</span>
-                        </div>
-                    </div>
-                    <p className="mt-2 text-blue-100">Compare the speed of Flashblocks vs standard blocks on Base Sepolia</p>
-                </div>
+        <ThemeProvider theme={darkTheme}>
+            <CssBaseline /> {/* Resets default browser styles for MUI */}
+            <Container maxWidth="md" sx={{ pt: 4, pb: 8 }}> {/* Container for responsiveness */}
+                <Box textAlign="center" mb={5}>
+                    <Typography variant="h4" component="h1" color="primary" mb={2}>
+                        Flashblocks Explorer
+                    </Typography>
+                    <Typography variant="subtitle1" color="text.secondary">
+                        Experience the speed of Flashblocks vs standard blocks on Base Sepolia
+                    </Typography>
+                    <Box mt={2} color="text.disabled" display="flex" alignItems="center" justifyContent="center">
+                        <Clock style={{ marginRight: 8 }} size={16} /> <Typography variant="caption">200ms vs 2s</Typography>
+                    </Box>
+                </Box>
 
-                {/* Transaction Section */}
-                <div className="bg-gray-800 p-6 rounded-lg shadow-lg mb-6 text-white"> {/* Darker section background, light text */}
-                    <h2 className="text-xl font-semibold mb-4 text-white">Submit Transaction (Bonus)</h2>
-                    {!isConnected ? (
-                        <button
-                            onClick={connectWallet}
-                            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-                        >
-                            Connect Wallet
-                        </button>
-                    ) : (
-                        <div>
-                            <p className="mb-4 text-gray-100">Connected: {userAddress.substring(0, 6)}...{userAddress.substring(38)}</p>
-                            <button
-                                onClick={submitTransaction}
-                                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
-                            >
-                                Send Test Transaction
-                            </button>
-                        </div>
-                    )}
 
-                    {txHash && (
-                        <div className="mt-4 p-4 bg-gray-700 rounded"> {/* Even darker for transaction info */}
-                            <p className="font-medium text-gray-100">Transaction Hash:</p>
-                            <p className="text-sm break-all text-gray-200">{txHash}</p>
-                            <div className="mt-2">
-                                <p className="font-medium text-gray-100">Status:</p>
-                                <pre className="text-sm bg-gray-600 p-2 rounded whitespace-pre-wrap text-gray-200">{txStatus}</pre>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                <Box mb={4}>
+                    <Tabs
+                        value={activeTab}
+                        onChange={(event, newValue) => setActiveTab(newValue)}
+                        variant="fullWidth"
+                        aria-label="block type tabs"
+                    >
+                        <Tab label="Comparison View" value="comparison" />
+                        <Tab label="Flashblocks (200ms)" value="flashblocks" />
+                        <Tab label="Full Blocks (2s)" value="fullblocks" />
+                    </Tabs>
+                </Box>
 
-                {/* Tabs for block types */}
-                <div className="mb-4">
-                    <div className="flex border-b border-gray-700"> {/* Darker border for tabs */}
-                        <button
-                            className={`py-2 px-4 ${activeTab === 'flashblocks' ? 'border-b-2 border-blue-500 font-medium text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                            onClick={() => setActiveTab('flashblocks')}
-                        >
-                            Flashblocks (200ms) - *Not Used in Comparison View*
-                        </button>
-                        <button
-                            className={`py-2 px-4 ${activeTab === 'fullblocks' ? 'border-b-2 border-blue-500 font-medium text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                            onClick={() => setActiveTab('fullblocks')}
-                        >
-                            Full Blocks (2s) - *Not Used in Comparison View*
-                        </button>
-                        <button
-                            className={`py-2 px-4 ${activeTab === 'comparison' ? 'border-b-2 border-blue-500 font-medium text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                            onClick={() => setActiveTab('comparison')}
-                        >
-                            Comparison View (Flash vs Full Block)
-                        </button>
-                    </div>
-                </div>
 
-                {/* Content based on active tab */}
-                <div className="bg-gray-800 p-6 rounded-lg shadow-lg"> {/* Darker main content background */}
+                <Box mb={6}>
                     {activeTab === 'flashblocks' && (
-                        <>
-                            <h2 className="text-xl font-semibold mb-4 text-white">Flashblocks Stream (200ms) - *Individual Stream View*</h2>
+                        <Box>
+                            <Typography variant="h6" align="center" gutterBottom color="primary">
+                                Flashblocks Stream (200ms) - *Individual Stream View*
+                            </Typography>
                             {formatBlock(latestFlashBlock, true)}
-                        </>
+                        </Box>
                     )}
 
                     {activeTab === 'fullblocks' && (
-                        <>
-                            <h2 className="text-xl font-semibold mb-4 text-white">Full Blocks Stream (2s) - *Individual Stream View*</h2>
+                        <Box>
+                            <Typography variant="h6" align="center" gutterBottom color="secondary">
+                                Full Blocks Stream (2s) - *Individual Stream View*
+                            </Typography>
                             {formatBlock(latestFullBlock, false)}
-                        </>
+                        </Box>
                     )}
 
                     {activeTab === 'comparison' && (
-                        <>
-                            <h2 className="text-xl font-semibold mb-4 text-white">Real-time Block Comparison</h2>
-                            <div className="mb-4">
-                                <h3 className="font-medium text-lg mb-2 text-blue-400">Latest Flashblock (200ms)</h3> {/* Neon blue heading */}
+                        <Grid container spacing={4}>
+                            <Grid item xs={12} md={6}>
+                                <Typography variant="h6" align="center" gutterBottom color="primary">
+                                    Latest Flashblock (200ms)
+                                </Typography>
                                 {formatBlock(latestFlashBlock, true)}
-                            </div>
-                            <div>
-                                <h3 className="font-medium text-lg mb-2 text-green-400">Latest Full Block (2s)</h3> {/* Neon green heading */}
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <Typography variant="h6" align="center" gutterBottom color="secondary">
+                                    Latest Full Block (2s)
+                                </Typography>
                                 {formatBlock(latestFullBlock, false)}
-                            </div>
-                        </>
+                            </Grid>
+                        </Grid>
                     )}
-                </div>
+                </Box>
 
-                <div className="mt-6 text-center text-sm text-gray-500">
-                    <p>Built for Flashblocks Builder Side Quest - ETH Denver 2025</p>
-                </div>
-            </div>
-        </div>
+
+                <Paper elevation={2} sx={{ p: 3, mt: 8, textAlign: 'center', backgroundColor: 'background.paper' }}>
+                    <Typography variant="h6" component="h2" gutterBottom color="text.primary">
+                        Submit Transaction (Bonus)
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" paragraph>
+                        Connect your wallet and submit a transaction to see confirmation times.
+                    </Typography>
+                    {!isConnected ? (
+                        <Button variant="contained" color="primary" onClick={connectWallet}>
+                            Connect Wallet
+                        </Button>
+                    ) : (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                            <Typography variant="body2" color="text.secondary">
+                                Connected: {userAddress.substring(0, 6)}...{userAddress.substring(38)}
+                            </Typography>
+                            <Button variant="contained" color="secondary" onClick={submitTransaction}>
+                                Send Test Transaction
+                            </Button>
+                        </Box>
+                    )}
+
+                    {txHash && (
+                        <Paper elevation={1} sx={{ mt: 4, p: 2, backgroundColor: 'background.default', color: 'text.secondary', borderRadius: '8px' }}>
+                            <Typography variant="subtitle2" color="text.primary">Transaction Hash:</Typography>
+                            <Typography variant="body2" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>{txHash}</Typography>
+                            <Box mt={2}>
+                                <Typography variant="subtitle2" color="text.primary">Status:</Typography>
+                                <Typography variant="body2" fontFamily="monospace" component="pre" sx={{ whiteSpace: 'pre-wrap', color: 'text.secondary' }}>
+                                    {txStatus}
+                                </Typography>
+                            </Box>
+                        </Paper>
+                    )}
+                </Paper>
+
+
+                <Box mt={10} textAlign="center" color="text.disabled" fontSize="small">
+                    © {new Date().getFullYear()} Flashblocks Explorer. Built for ETH Denver 2025.
+                </Box>
+            </Container>
+        </ThemeProvider>
     );
 };
 
