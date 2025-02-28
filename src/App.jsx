@@ -276,7 +276,7 @@ const FlashblocksApp = () => {
             return (
                 <Paper elevation={2} sx={{ p: 3, textAlign: 'center', minHeight: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography variant="body1" color="text.secondary">
-                        Waiting for {isFlashblock ? 'Flashblock' : 'Full Block'}...
+                        Waiting for {isFlashBlock ? 'Flashblock' : 'Full Block'}...
                     </Typography>
                 </Paper>
             );
@@ -285,6 +285,13 @@ const FlashblocksApp = () => {
         const maxTransactionsToShow = 2;
 
         const renderTransactionListItems = (transactions) => {
+            // Function to truncate hash
+            const truncateHash = (hash, startLength = 6, endLength = 14) => {
+                if (!hash) return '';
+                if (hash.length <= startLength + endLength + 3) return hash;
+                return `${hash.substring(0, startLength)}...${hash.substring(hash.length - endLength)}`;
+            };
+
             const items = [];
             if (transactions && transactions.length > 0) {
                 for (let i = 0; i < maxTransactionsToShow; i++) {
@@ -294,18 +301,19 @@ const FlashblocksApp = () => {
                         txHash = txHashOrObject.hash;
                     }
                     if (txHash) {
+                        const truncatedTxHash = truncateHash(txHash); // Truncate the hash here
                         items.push(
                             <ListItem key={i} disablePadding>
                                 <Typography
                                     variant="body2"
                                     color="text.secondary"
                                     sx={{
-                                        overflowWrap: 'break-word', // Keep this - good for normal word wrapping
-                                        wordBreak: 'break-all',    // ADD THIS - more aggressive breaking
+                                        overflowWrap: 'break-word',
+                                        wordBreak: 'break-all',
                                         fontFamily: 'monospace'
                                     }}
                                 >
-                                    {txHash}
+                                    {truncatedTxHash} {/* Use the truncated hash */}
                                 </Typography>
                             </ListItem>
                         );
@@ -434,13 +442,13 @@ const FlashblocksApp = () => {
 
                     {activeTab === 'comparison' && (
                         <Grid container spacing={4}>
-                            <Grid item xs={12} md={6}>
+                            <Grid item xs={12} md={12}> {/* Changed md={6} to md={12} for Flashblock */}
                                 <Typography variant="h6" align="center" gutterBottom color="primary">
                                     Latest Flashblock (200ms)
                                 </Typography>
                                 {formatBlock(latestFlashBlock, true)}
                             </Grid>
-                            <Grid item xs={12} md={6}>
+                            <Grid item xs={12} md={12}> {/* Changed md={6} to md={12} for Full Block */}
                                 <Typography variant="h6" align="center" gutterBottom color="secondary">
                                     Latest Full Block (2s)
                                 </Typography>
