@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock } from 'lucide-react';
-import debounce from 'lodash.debounce'; // Import debounce
+import debounce from 'lodash.debounce';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// Import Material UI components and theming
 import {
     ThemeProvider,
     createTheme,
@@ -10,7 +10,6 @@ import {
     Box,
     Typography,
     Container,
-    Button,
     Grid,
     Paper,
     Tabs,
@@ -23,170 +22,145 @@ const darkTheme = createTheme({
     palette: {
         mode: 'dark',
         primary: {
-            main: '#90caf9', // Light Blue
+            main: '#90caf9',
         },
         secondary: {
-            main: '#a5d6a7', // Light Green
+            main: '#a5d6a7',
         },
         background: {
-            default: '#121212', // Darker background
-            paper: '#1e1e1e', // Slightly lighter paper background
+            default: '#121212',
+            paper: '#1e1e1e',
         },
         text: {
-            primary: '#e0e0e0', // Off-white text
-            secondary: '#bdbdbd', // Lighter grey text
+            primary: '#e0e0e0',
+            secondary: '#bdbdbd',
         },
     },
     typography: {
-        fontFamily: "'Roboto Mono', monospace", // Optional: Monospace font for a Web3 feel
+        fontFamily: "'Roboto Mono', monospace",
         h1: {
             fontWeight: 700,
         },
         h2: {
             fontWeight: 600,
         },
-        // ... you can customize other typography variants
     },
     components: {
         MuiPaper: {
             styleOverrides: {
                 rounded: {
-                    borderRadius: '12px', // More rounded corners for Paper
+                    borderRadius: '12px',
                 },
             },
         },
         MuiButton: {
             styleOverrides: {
                 root: {
-                    borderRadius: '8px', // Rounded buttons
-                    textTransform: 'none', // Prevent uppercase button text
+                    borderRadius: '8px',
+                    textTransform: 'none',
                 },
             },
         },
         MuiTabs: {
             styleOverrides: {
                 indicator: {
-                    backgroundColor: '#90caf9', // Blue indicator for tabs
+                    backgroundColor: '#90caf9',
                 },
             },
         },
         MuiTab: {
             styleOverrides: {
                 root: {
-                    textTransform: 'none', // Prevent uppercase tab text
+                    textTransform: 'none',
                     fontWeight: 500,
                     '&.Mui-selected': {
-                        color: '#90caf9', // Blue text for selected tab
+                        color: '#90caf9',
                     },
                 },
             },
         },
-        // ... you can customize other MUI components globally
     },
 });
 
+// Animation variants for new block notification (FLICKER animation)
+const flashVariants = {
+    initial: {
+        boxShadow: "0px 0px 0px rgba(144, 202, 249, 0)",
+        borderColor: "rgba(144, 202, 249, 0.6)"
+    },
+    animate: {
+        boxShadow: [
+            "0px 0px 0px rgba(144, 202, 249, 0)",
+            "0px 0px 20px rgba(144, 202, 249, 0.8)",
+            "0px 0px 0px rgba(144, 202, 249, 0)"
+        ],
+        borderColor: [
+            "rgba(144, 202, 249, 0.6)",
+            "rgba(144, 202, 249, 1)",
+            "rgba(144, 202, 249, 0.6)"
+        ],
+        transition: {
+            duration: 1.5,
+            times: [0, 0.5, 1],
+            repeat: 0
+        }
+    }
+};
+
+const transactionVariants = {
+    hidden: { opacity: 0, x: -10 },
+    visible: i => ({
+        opacity: 1,
+        x: 0,
+        transition: {
+            delay: i * 0.1,
+            duration: 0.5
+        }
+    })
+};
 
 const FlashblocksApp = () => {
-    console.log("FlashblocksApp RE-RENDER"); // Log 1: Component re-render
+    console.log("FlashblocksApp RE-RENDER");
 
-    // State management - store only the latest blocks, not arrays
     const [latestFullBlock, setLatestFullBlock] = useState(null);
     const [latestFlashBlock, setLatestFlashBlock] = useState(null);
-    const [activeTab, setActiveTab] = useState('comparison'); // Default to comparison tab
-    const [txHash, setTxHash] = useState('');
-    const [txStatus, setTxStatus] = useState(null);
-    const [userAddress, setUserAddress] = useState('');
-    const [isConnected, setIsConnected] = useState(false);
+    const [activeTab, setActiveTab] = useState('comparison');
     const wsRef = useRef(null);
     const fullBlockTimerRef = useRef(null);
 
-    // Connect to MetaMask (no changes needed)
-    const connectWallet = async () => {
-        if (window.ethereum) {
-            try {
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                setUserAddress(accounts[0]);
-                setIsConnected(true);
-            } catch (error) {
-                console.error("Error connecting to MetaMask", error);
-            }
-        } else {
-            alert("Please install MetaMask to use this feature");
-        }
-    };
+    const [flashBlockAnimationKey, setFlashBlockAnimationKey] = useState(0);
+    const [fullBlockAnimationKey, setFullBlockAnimationKey] = useState(0);
 
-    // Submit a transaction (no changes needed)
-    const submitTransaction = async () => {
-        if (!isConnected) {
-            alert("Please connect your wallet first");
-            return;
-        }
-        setTxStatus("Preparing transaction...");
-        try {
-            const params = [{
-                from: userAddress,
-                to: userAddress, // Sending to yourself for testing
-                value: "0x1", // Minimal value
-                gas: "0x5208", // 21000 gas
-            }];
-            // Start timing
-            const startTime = Date.now();
-            // Send transaction
-            const txHash = await window.ethereum.request({
-                method: 'eth_sendTransaction',
-                params,
-            });
-            setTxHash(txHash);
-            setTxStatus("Transaction submitted, waiting for confirmation...");
-            // Polling logic remains the same
-            let flashBlockConfirmTime = null;
-            let fullBlockConfirmTime = null;
-            const checkReceipt = async () => {
-                // Check flashblocks
-                if (!flashBlockConfirmTime) {
-                    const flashResponse = await fetch('https://sepolia-preconf.base.org', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            jsonrpc: '2.0',
-                            method: 'eth_getTransactionReceipt',
-                            params: [txHash],
-                            id: 1
-                        })
-                    });
-                    const flashData = await flashResponse.json();
-                    if (flashData.result && flashData.result.blockNumber) {
-                        flashBlockConfirmTime = Date.now() - startTime;
-                        setTxStatus(prev => prev + `\nConfirmed in flashblock after ${flashBlockConfirmTime}ms`);
-                    }
-                }
-                // If both confirmations received, stop polling
-                if (flashBlockConfirmTime && fullBlockConfirmTime) {
-                    return;
-                }
-                // Continue polling
-                setTimeout(checkReceipt, 100);
-            };
-            checkReceipt();
-        } catch (error) {
-            console.error("Error submitting transaction", error);
-            setTxStatus(`Error: ${error.message}`);
-        }
-    };
+    const previousFlashBlockRef = useRef(null);
+    const previousFullBlockRef = useRef(null);
 
-    // --- Debounced State Setters ---
+
     const debouncedSetFlashBlock = useCallback(debounce((data) => {
-        setLatestFlashBlock(data);
-        console.log("setLatestFlashBlock DEBOUNCED", data); // Log 2a: Debounced Flashblock state update
-    }, 200), []); // Increased debounce to 200ms
+        const newBlockNumber = data.number;
+        if (previousFlashBlockRef.current !== newBlockNumber) {
+            setLatestFlashBlock(data);
+            setFlashBlockAnimationKey(prev => prev + 1);
+            previousFlashBlockRef.current = newBlockNumber;
+            console.log("setLatestFlashBlock DEBOUNCED with animation", data);
+        } else {
+            setLatestFlashBlock(data);
+            console.log("setLatestFlashBlock DEBOUNCED (no animation)", data);
+        }
+    }, 200), []);
 
     const debouncedSetFullBlock = useCallback(debounce((data) => {
-        setLatestFullBlock(data.result);
-        console.log("setLatestFullBlock DEBOUNCED", data.result); // Log 2b: Debounced Fullblock state update
-    }, 400), []); // Increased debounce to 400ms
+        const newBlockNumber = data.result?.number;
+        if (previousFullBlockRef.current !== newBlockNumber) {
+            setLatestFullBlock(data.result);
+            setFullBlockAnimationKey(prev => prev + 1);
+            previousFullBlockRef.current = newBlockNumber;
+            console.log("setLatestFullBlock DEBOUNCED with animation", data.result);
+        } else {
+            setLatestFullBlock(data.result);
+            console.log("setLatestFullBlock DEBOUNCED (no animation)", data);
+        }
+    }, 400), []);
 
-
-    // Initialize WebSocket connection for flashblocks - update latestFlashBlock (using debounced setter)
     useEffect(() => {
         wsRef.current = new WebSocket('wss://sepolia.flashblocks.base.org/ws');
         wsRef.current.onopen = () => {
@@ -202,7 +176,7 @@ const FlashblocksApp = () => {
                     try {
                         const data = JSON.parse(text);
                         console.log("WebSocket Data (Parsed from Blob):", data);
-                        debouncedSetFlashBlock(data); // Use debounced setter for flashblocks
+                        debouncedSetFlashBlock(data);
                     } catch (parseError) {
                         console.error('Error parsing JSON from Blob data:', parseError);
                         console.error('Problematic Blob Text Data:', text);
@@ -213,8 +187,8 @@ const FlashblocksApp = () => {
             } else if (typeof event.data === 'string') {
                 try {
                     const data = JSON.parse(event.data);
-                    console.log("WebSocket Data (String):", data);
-                    debouncedSetFlashBlock(data); // Use debounced setter for flashblocks
+                        console.log("WebSocket Data (String):", data);
+                    debouncedSetFlashBlock(data);
                 } catch (parseError) {
                     console.error('Error parsing JSON from string data:', parseError);
                     console.error('Problematic String Data:', event.data);
@@ -236,9 +210,8 @@ const FlashblocksApp = () => {
                 wsRef.current.close();
             }
         };
-    }, [debouncedSetFlashBlock]); // Add debouncedSetFlashBlock to dependency array
+    }, [debouncedSetFlashBlock]);
 
-    // Fetch full blocks periodically - update latestFullBlock (using debounced setter)
     useEffect(() => {
         const fetchFullBlock = async () => {
             try {
@@ -254,7 +227,7 @@ const FlashblocksApp = () => {
                 });
                 const data = await response.json();
                 if (data.result) {
-                    debouncedSetFullBlock(data); // Use debounced setter for full blocks
+                    debouncedSetFullBlock(data);
                 }
             } catch (error) {
                 console.error('Error fetching full block', error);
@@ -267,14 +240,12 @@ const FlashblocksApp = () => {
                 clearInterval(fullBlockTimerRef.current);
             }
         };
-    }, [debouncedSetFullBlock]); // Add debouncedSetFullBlock to dependency array
+    }, [debouncedSetFullBlock]);
 
-
-    // Format Block Data - Now using MUI Typography and Paper
-    const formatBlock = (block, isFlashBlock = false) => {
+    const formatBlock = (block, isFlashBlock = false, animationKey) => {
         if (!block) {
             return (
-                <Paper elevation={2} sx={{ p: 3, textAlign: 'center', minHeight: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Paper elevation={2} sx={{ p: 3, textAlign: 'center', minHeight: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography variant="body1" color="text.secondary">
                         Waiting for {isFlashBlock ? 'Flashblock' : 'Full Block'}...
                     </Typography>
@@ -285,8 +256,7 @@ const FlashblocksApp = () => {
         const maxTransactionsToShow = 2;
 
         const renderTransactionListItems = (transactions) => {
-            // Function to truncate hash
-            const truncateHash = (hash, startLength = 6, endLength = 14) => {
+            const truncateHash = (hash, startLength, endLength) => { // Modified to accept startLength and endLength
                 if (!hash) return '';
                 if (hash.length <= startLength + endLength + 3) return hash;
                 return `${hash.substring(0, startLength)}...${hash.substring(hash.length - endLength)}`;
@@ -300,44 +270,79 @@ const FlashblocksApp = () => {
                     if (txHashOrObject && typeof txHashOrObject === 'object' && txHashOrObject.hash) {
                         txHash = txHashOrObject.hash;
                     }
+                    let displayTxHash = txHash; // Default to full hash
                     if (txHash) {
-                        const truncatedTxHash = truncateHash(txHash); // Truncate the hash here
+                        if (activeTab === 'comparison') {
+                            displayTxHash = truncateHash(txHash, 6, 14); // Truncate in comparison view
+                        }
                         items.push(
-                            <ListItem key={i} disablePadding>
-                                <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                    sx={{
-                                        overflowWrap: 'break-word',
-                                        wordBreak: 'break-all',
-                                        fontFamily: 'monospace'
-                                    }}
-                                >
-                                    {truncatedTxHash} {/* Use the truncated hash */}
-                                </Typography>
-                            </ListItem>
+                            <motion.div
+                                key={i}
+                                custom={i}
+                                initial="hidden"
+                                animate="visible"
+                                variants={transactionVariants}
+                            >
+                                <ListItem disablePadding>
+                                    <Typography
+                                        variant="body2"
+                                        color="text.secondary"
+                                        sx={{
+                                            overflowWrap: 'break-word',
+                                            wordBreak: 'break-all',
+                                            fontFamily: 'monospace'
+                                        }}
+                                    >
+                                        {displayTxHash}
+                                    </Typography>
+                                </ListItem>
+                            </motion.div>
                         );
                     } else {
                         items.push(
-                            <ListItem key={`empty-${i}`} disablePadding>
-                                <Typography variant="body2" color="text.disabled">- No Tx -</Typography>
-                            </ListItem>
+                            <motion.div
+                                key={`empty-${i}`}
+                                custom={i}
+                                initial="hidden"
+                                animate="visible"
+                                variants={transactionVariants}
+                            >
+                                <ListItem disablePadding>
+                                    <Typography variant="body2" color="text.disabled">- No Tx -</Typography>
+                                </ListItem>
+                            </motion.div>
                         );
                     }
                 }
                 if (transactions.length > maxTransactionsToShow) {
                     items.push(
-                        <ListItem key="more" disablePadding>
-                            <Typography variant="body2" color="text.disabled">...and {transactions.length - maxTransactionsToShow} more</Typography>
-                        </ListItem>
+                        <motion.div
+                            key="more"
+                            custom={maxTransactionsToShow}
+                            initial="hidden"
+                            animate="visible"
+                            variants={transactionVariants}
+                        >
+                            <ListItem disablePadding>
+                                <Typography variant="body2" color="text.disabled">...and {transactions.length - maxTransactionsToShow} more</Typography>
+                            </ListItem>
+                        </motion.div>
                     );
                 }
             } else {
                 for (let i = 0; i < maxTransactionsToShow; i++) {
                     items.push(
-                        <ListItem key={`empty-${i}`} disablePadding>
-                            <Typography variant="body2" color="text.disabled">- No Tx -</Typography>
-                        </ListItem>
+                        <motion.div
+                            key={`empty-${i}`}
+                            custom={i}
+                            initial="hidden"
+                            animate="visible"
+                            variants={transactionVariants}
+                        >
+                            <ListItem disablePadding>
+                                <Typography variant="body2" color="text.disabled">- No Tx -</Typography>
+                            </ListItem>
+                        </motion.div>
                     );
                 }
             }
@@ -348,52 +353,108 @@ const FlashblocksApp = () => {
             );
         };
 
+        const pulseColor = isFlashBlock ?
+            "rgba(144, 202, 249, 0.8)" :
+            "rgba(165, 214, 167, 0.8)";
+
+        const customFlashVariants = {
+            ...flashVariants,
+            animate: {
+                backgroundColor: [
+                    "rgba(0, 0, 0, 0)",
+                    pulseColor,
+                    "rgba(0, 0, 0, 0)",
+                    pulseColor,
+                    "rgba(0, 0, 0, 0)"
+                ],
+                transition: {
+                    duration: 0.2,
+                    times: [0, 0.2, 0.4, 0.6, 1],
+                    repeat: 0,
+                    repeatType: 'loop'
+                }
+            },
+            initial: { backgroundColor: "rgba(0, 0, 0, 0)" }
+        };
+
 
         return (
-            <Paper elevation={3} rounded sx={{ p: 3, mb: 4, borderLeft: `4px solid ${isFlashBlock ? '#64b5f6' : '#81c784'}` }}>
-                <Typography variant="h6" component="h3" gutterBottom color={isFlashBlock ? 'primary' : 'secondary'}>
-                    {isFlashBlock ? 'Flashblock' : 'Full Block'}
-                </Typography>
-                <Grid container spacing={2} mb={2}>
-                    <Grid item xs={6}>
-                        <Typography variant="subtitle2" color="text.primary">#</Typography>
-                        <Typography variant="body2" fontFamily="monospace" color="text.secondary">
-                            {isFlashBlock ? parseInt(block.number, 16) : parseInt(block.number, 16)}
-                        </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                        <Typography variant="subtitle2" color="text.primary">Time</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            {new Date((isFlashBlock ? block.timestamp : parseInt(block.timestamp, 16)) * 1000).toLocaleTimeString()}
-                        </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                        <Typography variant="subtitle2" color="text.primary">Txs</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            {isFlashBlock ? block.transactions?.length : block.transactions?.length}
-                        </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                        <Typography variant="subtitle2" color="text.primary">Type</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            {isFlashBlock ? (block.diffType ? block.diffType : 'Initial') : 'Standard'}
-                        </Typography>
-                    </Grid>
-                </Grid>
-                <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }} color="text.primary">Transactions</Typography>
-                {renderTransactionListItems(isFlashBlock ? (block.transactions || block.diff?.transactions) : block.transactions)}
-                <Typography variant="caption" color="text.disabled" sx={{ mt: 2, fontStyle: 'italic' }}>
-                    {isFlashBlock ? '~200ms block time' : '~2s block time'}
-                </Typography>
-            </Paper>
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={animationKey}
+                >
+                    <motion.div
+                        initial="initial"
+                        animate="animate"
+                        variants={customFlashVariants}
+                        style={{
+                            borderRadius: '12px',
+                            overflow: 'hidden'
+
+                        }}
+                    >
+                        <Paper
+                            elevation={3}
+                            sx={{
+                                p: 3,
+                                mb: 4,
+                                borderLeft: `4px solid ${isFlashBlock ? '#64b5f6' : '#81c784'}`,
+                                borderRadius: '12px',
+                                background: `${isFlashBlock ? 'linear-gradient(to right, rgba(100, 181, 246, 0.05), transparent)' : 'linear-gradient(to right, rgba(129, 199, 132, 0.05), transparent)'}`
+                            }}
+                        >
+                            <Typography variant="h6" component="h3" gutterBottom color={isFlashBlock ? 'primary' : 'secondary'}>
+                                {isFlashBlock ? 'Flashblock' : 'Full Block'}
+                            </Typography>
+                            <Grid container spacing={2} mb={2}>
+                                <Grid item xs={6}>
+                                    <Typography variant="subtitle2" color="text.primary">#</Typography>
+                                    <Typography variant="body2" fontFamily="monospace" color="text.secondary">
+                                        {isFlashBlock ? parseInt(block.number, 16) : parseInt(block.number, 16)}
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography variant="subtitle2" color="text.primary">Time</Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {new Date((isFlashBlock ? block.timestamp : parseInt(block.timestamp, 16)) * 1000).toLocaleTimeString()}
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography variant="subtitle2" color="text.primary">Txs</Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {isFlashBlock ? block.transactions?.length : block.transactions?.length}
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography variant="subtitle2" color="text.primary">Type</Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {isFlashBlock ? (block.diffType ? block.diffType : 'Initial') : 'Standard'}
+                                    </Typography>
+                                </Grid>
+                            </Grid>
+                            <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }} color="text.primary">Transactions</Typography>
+                            {renderTransactionListItems(isFlashBlock ? (block.transactions || block.diff?.transactions) : block.transactions)}
+                            <Typography variant="caption" color="text.disabled" sx={{ mt: 2, fontStyle: 'italic' }}>
+                                {isFlashBlock ? '~200ms block time' : '~2s block time'}
+                            </Typography>
+                        </Paper>
+                    </motion.div>
+                </motion.div>
+            </AnimatePresence>
         );
     };
 
-
     return (
-        <ThemeProvider theme={darkTheme}>
-            <CssBaseline /> {/* Resets default browser styles for MUI */}
-            <Container maxWidth="md" sx={{ pt: 4, pb: 8 }}> {/* Container for responsiveness */}
+        <ThemeProvider theme={darkTheme} >
+            <CssBaseline />
+         <Box sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "100vw",
+         }}>
+         <Container  sx={{ pt: 4, pb: 8 ,}}>
                 <Box textAlign="center" mb={5}>
                     <Typography variant="h4" component="h1" color="primary" mb={2}>
                         Flashblocks Explorer
@@ -405,7 +466,6 @@ const FlashblocksApp = () => {
                         <Clock style={{ marginRight: 8 }} size={16} /> <Typography variant="caption">200ms vs 2s</Typography>
                     </Box>
                 </Box>
-
 
                 <Box mb={4}>
                     <Tabs
@@ -420,14 +480,13 @@ const FlashblocksApp = () => {
                     </Tabs>
                 </Box>
 
-
                 <Box mb={6}>
                     {activeTab === 'flashblocks' && (
                         <Box>
                             <Typography variant="h6" align="center" gutterBottom color="primary">
                                 Flashblocks Stream (200ms) - *Individual Stream View*
                             </Typography>
-                            {formatBlock(latestFlashBlock, true)}
+                            {formatBlock(latestFlashBlock, true, flashBlockAnimationKey)}
                         </Box>
                     )}
 
@@ -436,70 +495,37 @@ const FlashblocksApp = () => {
                             <Typography variant="h6" align="center" gutterBottom color="secondary">
                                 Full Blocks Stream (2s) - *Individual Stream View*
                             </Typography>
-                            {formatBlock(latestFullBlock, false)}
+                            {formatBlock(latestFullBlock, false, fullBlockAnimationKey)}
                         </Box>
                     )}
 
                     {activeTab === 'comparison' && (
-                        <Grid container spacing={4}>
-                            <Grid item xs={12} md={12}> {/* Changed md={6} to md={12} for Flashblock */}
-                                <Typography variant="h6" align="center" gutterBottom color="primary">
-                                    Latest Flashblock (200ms)
-                                </Typography>
-                                {formatBlock(latestFlashBlock, true)}
+                        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                            <Grid container spacing={4} maxWidth="md" sx={{
+                            }}>
+                                <Grid item xs={12} md={6}>
+                                    <Typography variant="h6" align="center" gutterBottom color="primary">
+                                        Latest Flashblock (200ms)
+                                    </Typography>
+                                    {formatBlock(latestFlashBlock, true, flashBlockAnimationKey)}
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <Typography variant="h6" align="center" gutterBottom color="secondary">
+                                        Latest Full Block (2s)
+                                    </Typography>
+                                    {formatBlock(latestFullBlock, false, fullBlockAnimationKey)}
+                                </Grid>
                             </Grid>
-                            <Grid item xs={12} md={12}> {/* Changed md={6} to md={12} for Full Block */}
-                                <Typography variant="h6" align="center" gutterBottom color="secondary">
-                                    Latest Full Block (2s)
-                                </Typography>
-                                {formatBlock(latestFullBlock, false)}
-                            </Grid>
-                        </Grid>
-                    )}
-                </Box>
-
-
-                <Paper elevation={2} sx={{ p: 3, mt: 8, textAlign: 'center', backgroundColor: 'background.paper' }}>
-                    <Typography variant="h6" component="h2" gutterBottom color="text.primary">
-                        Submit Transaction (Bonus)
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" paragraph>
-                        Connect your wallet and submit a transaction to see confirmation times.
-                    </Typography>
-                    {!isConnected ? (
-                        <Button variant="contained" color="primary" onClick={connectWallet}>
-                            Connect Wallet
-                        </Button>
-                    ) : (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            <Typography variant="body2" color="text.secondary">
-                                Connected: {userAddress.substring(0, 6)}...{userAddress.substring(38)}
-                            </Typography>
-                            <Button variant="contained" color="secondary" onClick={submitTransaction}>
-                                Send Test Transaction
-                            </Button>
                         </Box>
                     )}
-
-                    {txHash && (
-                        <Paper elevation={1} sx={{ mt: 4, p: 2, backgroundColor: 'background.default', color: 'text.secondary', borderRadius: '8px' }}>
-                            <Typography variant="subtitle2" color="text.primary">Transaction Hash:</Typography>
-                            <Typography variant="body2" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>{txHash}</Typography>
-                            <Box mt={2}>
-                                <Typography variant="subtitle2" color="text.primary">Status:</Typography>
-                                <Typography variant="body2" fontFamily="monospace" component="pre" sx={{ whiteSpace: 'pre-wrap', color: 'text.secondary' }}>
-                                    {txStatus}
-                                </Typography>
-                            </Box>
-                        </Paper>
-                    )}
-                </Paper>
+                </Box>
 
 
                 <Box mt={10} textAlign="center" color="text.disabled" fontSize="small">
-                    © {new Date().getFullYear()} Flashblocks Explorer. Built for ETH Denver 2025.
+                    © {new Date().getFullYear()} Flashblocks Explorer. Built by Murat Can Yüksel for ETH Denver 2025.
                 </Box>
             </Container>
+         </Box>
         </ThemeProvider>
     );
 };
